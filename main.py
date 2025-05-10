@@ -11,6 +11,7 @@ from faker import Faker
 
 import logging
 from datetime import datetime
+from PIL import Image, ImageTk
 
 logging.basicConfig(
         level=logging.INFO,
@@ -25,6 +26,7 @@ class LureBuster:
         self.root.title("LureBuster - Phishing Site Disruptor")
         self.root.geometry("1200x800")
         self.root.minsize(1000, 700)
+        self.root.maxsize(1000, 700)
 
         self.set_theme()
 
@@ -40,10 +42,52 @@ class LureBuster:
                 "start_time"         : None,
                 "end_time"           : None
         }
+
+        self.password_compexities = {
+                'Low'    : 6,
+                'Medium' : 12,
+                'High'   : 18,
+                'Higher' : 24,
+                'Extreme': 30,
+                'Random' : random.randint(6, 30)
+        }
         self.faker = Faker()
         self.regions = ["US", "UK", "CA", "AU", "DE", "FR", "JP", "BR", "IN"]
+        self.methods = ["GET", "POST", "PATCH", "PUT", "DELETE"]
         self.current_region = tk.StringVar(value="US")
+        self.current_method = "POST"
         self.request_threads = []
+
+        self.example_template = {
+                "name"       : "Example Template",
+                "headers"    : {
+                        "User-Agent"     : "{{user_agent}}",
+                        "Content-Type"   : "application/x-www-form-urlencoded",
+                        "Accept"         : "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                                           "image/webp,*/*;q=0.8",
+                        "Accept-Language": "en-US,en;q=0.5"
+                },
+                "form_fields": {
+                        "username": "{{email}}",
+                        "password": "{{password}}",
+                        "remember": "true"
+                }
+        }
+
+        # Possible Generators https://faker.readthedocs.io/en/stable/providers.html
+        base = ["{{digit}}", "{{int}}", "{{letter}}", "{{letters}}"]
+        address = ["{{address}}", "{{city}}", "{{city_suffix}}", "{{country}}", "{{country_code}}", "{{postcode}}",
+                   "{{street_name}}", "{{street_suffix}}"]
+        bank = ["{{aba}}", "{{bban}}", "{{iban}}", "{{swift11}}", "{{swift8}}"]
+        barcode = ["{{ean13}}", "{{ean8}}"]
+        company = ["{{bs}}", "{{catch_phrase}}", "{{company}}", "{{company_suffix}}"]
+        credit_card = ["{{credit_card_expire}}", "{{credit_card_number}}", "{{credit_card_provider}}",
+                       "{{credit_card_security_code}}"]
+        currency = ["{{cryptocurrency}}", "{{cryptocurrency_code}}", "{{currency}}", "{{currency_code}}",
+                    "{{currency_name}}", "{{currency_symbol}}", "{{pricetag}}"]
+        ...
+        self.generators = ['{{email}}', '{{password}}', '{{full_name}}', "{{first_name}}", "{{last_name}}",
+                           "{{}}", "{{social_security_number}}, {{birth_date}}, {{license_plate}}"]
 
         self.create_ui()
 
@@ -85,6 +129,7 @@ class LureBuster:
         style.map('TNotebook.Tab',
                   background=[('selected', self.accent_color)],
                   foreground=[('selected', 'white')])
+        self.style = style
 
         self.root.configure(bg=self.bg_color)
 
@@ -98,9 +143,10 @@ class LureBuster:
         canvas = tk.Canvas(header_frame, width=60, height=60, bg=self.bg_color, highlightthickness=0)
         canvas.pack(side=tk.LEFT, padx=(0, 10))
 
-        canvas.create_oval(10, 10, 50, 50, fill=self.accent_color, outline="")
-        canvas.create_line(20, 20, 40, 40, width=3, fill="white")
-        canvas.create_line(40, 20, 20, 40, width=3, fill="white")
+        pil_image = Image.open("assets/bait.jpg")  # replace with your image path
+        pil_image = pil_image.resize((50, 50), Image.Resampling.LANCZOS)
+        self.logo_image = ImageTk.PhotoImage(pil_image)
+        canvas.create_image(30, 30, image=self.logo_image, anchor=tk.CENTER)
 
         title_frame = ttk.Frame(header_frame)
         title_frame.pack(side=tk.LEFT)
@@ -165,6 +211,16 @@ class LureBuster:
         url_label = ttk.Label(url_frame, text="Target Phishing URL:")
         url_label.pack(anchor=tk.W)
 
+        method_combo = ttk.Combobox(
+                url_frame,
+                textvariable=self.current_method,
+                values=self.methods,
+                width=10,
+                state='readonly'
+        )
+        method_combo.current(0)
+        method_combo.pack(side=tk.RIGHT, pady=(5, 0))
+
         url_entry = ttk.Entry(url_frame, textvariable=self.target_url, width=50)
         url_entry.pack(fill=tk.X, pady=(5, 0))
 
@@ -227,12 +283,28 @@ class LureBuster:
                 region_frame,
                 textvariable=self.current_region,
                 values=self.regions,
-                width=10
+                width=10,
+                state='readonly'
         )
         region_combo.pack(side=tk.RIGHT)
 
         buttons_frame = ttk.Frame(left_frame)
         buttons_frame.pack(fill=tk.X, pady=(0, 10))
+
+        select_template_button = ttk.Button(
+                buttons_frame,
+                text="Select Template",
+                command=self.select_template_for_attack
+        )
+        select_template_button.pack(side=tk.LEFT, padx=5)
+
+        # Add a label to show selected template
+        self.template_label = ttk.Label(
+                buttons_frame,
+                text="No template selected",
+                foreground="gray"
+        )
+        self.template_label.pack(side=tk.LEFT, padx=5)
 
         self.start_button = ttk.Button(
                 buttons_frame,
@@ -372,10 +444,20 @@ class LureBuster:
         )
         self.template_editor.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
 
+        # Add Save button frame below the editor
+        save_button_frame = ttk.Frame(right_frame)
+        save_button_frame.pack(fill=tk.X, pady=(5, 0))
+
+        save_template_button = ttk.Button(
+                save_button_frame,
+                text="Save Template",
+                command=self.save_template
+        )
+        save_template_button.pack(side=tk.RIGHT)
+
         help_frame = ttk.LabelFrame(parent, text="Template Help")
         help_frame.pack(fill=tk.X, pady=(10, 0))
 
-        # I must list all the available placeholders
         help_text = ttk.Label(
                 help_frame,
                 text="Templates use placeholders like {{email}} that will be replaced with generated data.\n"
@@ -387,7 +469,6 @@ class LureBuster:
 
         self.templates = {}
         self.current_template = None
-
         self.load_templates()
 
     def load_templates(self):
@@ -396,11 +477,63 @@ class LureBuster:
             with open('templates.json', 'r') as f:
                 self.templates = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            self.templates = {}
+            self.templates.update(self.example_template)
 
         self.templates_listbox.delete(0, tk.END)
         for name in self.templates:
             self.templates_listbox.insert(tk.END, name)
+
+        if self.templates:
+            self.current_template = self.templates[list(self.templates.keys())[0]]
+
+    def select_template_for_attack(self):
+        """Open a dialog to select which template to use for the attack"""
+        if not self.templates:
+            messagebox.showwarning("Warning", "No templates available")
+            return
+
+        # Create dialog window
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Select Template")
+        dialog.geometry("300x300")
+
+        # List available templates
+        listbox = tk.Listbox(
+                dialog,
+                bg=self.bg_color,
+                fg=self.fg_color,
+                selectbackground=self.accent_color,
+                selectforeground="white",
+                height=5
+        )
+        listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        for name in self.templates:
+            listbox.insert(tk.END, name)
+
+        # Add select button
+        def on_select():
+            selection = listbox.curselection()
+            if selection:
+                self.selected_template = listbox.get(selection[0])
+                self.template_label.config(
+                        text=f"Template: {self.selected_template}",
+                        foreground=self.fg_color
+                )
+                dialog.destroy()
+
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(padx=5, pady=(0, 5))
+
+        ttk.Button(
+                button_frame,
+                text="Select",
+                command=on_select,
+        ).pack(side=tk.RIGHT)
+
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.wait_window(dialog)
 
     def build_analytics_tab(self, parent):
         info_frame = ttk.Frame(parent)
@@ -488,6 +621,11 @@ class LureBuster:
         for row in self.history_tree.get_children():
             self.history_tree.delete(row)
 
+        self.rate_plot.clear()
+        self.rate_canvas.draw()
+        self.status_plot.clear()
+        self.status_canvas.draw()
+
     def build_settings_tab(self, parent):
         info_frame = ttk.Frame(parent)
         info_frame.pack(fill=tk.X, pady=(0, 10))
@@ -563,9 +701,10 @@ class LureBuster:
         pwd_combo = ttk.Combobox(
                 pwd_frame,
                 textvariable=self.pwd_var,
-                values=["Low", "Medium", "High"],
+                values=self.password_compexities.keys(),
                 width=10
         )
+
         pwd_combo.pack(side=tk.RIGHT)
 
         special_frame = ttk.Frame(right_frame)
@@ -620,26 +759,8 @@ class LureBuster:
             messagebox.showerror("Error", "A template with this name already exists")
             return
 
-        self.templates[name] = {
-                "name"           : name,
-                "method"         : "POST",
-                "headers"        : {
-                        "User-Agent"     : "{{user_agent}}",
-                        "Content-Type"   : "application/x-www-form-urlencoded",
-                        "Accept"         : "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                        "Accept-Language": "en-US,en;q=0.5"
-                },
-                "form_fields"    : {
-                        "username": "{{email}}",
-                        "password": "{{password}}",
-                        "remember": "true"
-                },
-                "data_generators": {
-                        "email"     : "email",
-                        "password"  : "password",
-                        "user_agent": "user_agent"
-                }
-        }
+        self.templates[name] = self.example_template
+        self.templates[name]["name"] = name
 
         self.templates_listbox.insert(tk.END, name)
         self.save_templates()
@@ -666,13 +787,19 @@ class LureBuster:
             return
 
         try:
-            new_data = json.loads(self.template_editor.get(1.0, tk.END))
+            edited_content = self.template_editor.get("1.0", tk.END).strip()
+            template_data = json.loads(edited_content)
+            self.templates[self.current_template] = template_data
 
-            self.templates[self.current_template] = new_data
             self.save_templates()
+
             messagebox.showinfo("Success", "Template saved successfully")
+
         except json.JSONDecodeError as e:
             messagebox.showerror("Error", f"Invalid JSON: {str(e)}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save template: {str(e)}")
 
     def save_templates(self):
         """Save templates to persistent storage"""
@@ -719,6 +846,10 @@ class LureBuster:
                                    f"Are you sure you want to send {self.request_count.get()} requests to {url}?\n\n"
                                    "This tool should only be used for educational purposes and security testing "
                                    "on systems you have permission to test."):
+            return
+
+        self.select_template_for_attack()
+        if not self.selected_template:
             return
 
         self.stats = {
@@ -784,55 +915,21 @@ class LureBuster:
         url = self.target_url.get()
         count = self.request_count.get()
         delay = self.delay.get()
-        region = self.current_region.get()
 
-        region_to_locale = {
-                "US": "en_US",
-                "UK": "en_GB",
-                "CA": "en_CA",
-                "AU": "en_AU",
-                "DE": "de_DE",
-                "FR": "fr_FR",
-                "JP": "ja_JP",
-                "BR": "pt_BR",
-                "IN": "en_IN"
-        }
-
-        faker = Faker(region_to_locale.get(region, "en_US"))
-
-        template = {
-                "method"     : "POST",
-                "headers"    : {
-                        "User-Agent"  : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, "
-                                        "like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-                        "Content-Type": "application/x-www-form-urlencoded"
-                },
-                "form_fields": {
-                        "email"   : "",
-                        "password": "",
-                        "remember": "true"
-                }
-        }
+        sending_template = self.selected_template.copy()
 
         while self.running and self.stats["requests_sent"] < count:
             email = faker.email()
-            sizes = {
-                    'Easy'   : 6,
-                    'Medium' : 12,
-                    'Hard'   : 18,
-                    'Harder' : 24,
-                    'Extreme': 30,
-                    'Random' : random.randint(6, 30)
-            }
-            password = faker.password(length=sizes.get(self.pwd_var.get(), 6))
+            password_complexity = self.pwd_var.get()
+            password = faker.password(length=self.password_compexities.get(password_complexity, 6))
             user_agent = faker.user_agent()
 
-            template["headers"]["User-Agent"] = user_agent
-            template["form_fields"]["email"] = email
-            template["form_fields"]["password"] = password
+            sending_template["headers"]["User-Agent"] = user_agent
+            sending_template["form_fields"]["email"] = email
+            sending_template["form_fields"]["password"] = password
 
             try:
-                success = random.random() > 0.1  # 90% success rate
+                success = random.random() > 0.1
 
                 status = "SUCCESS" if success else "FAILED"
                 self.log_message(f"Thread {thread_id}: Sent request with email {email} - {status}")
@@ -870,6 +967,28 @@ class LureBuster:
                 self.stats["failed_requests"] += 1
                 self.update_progress()
                 time.sleep(delay)
+
+    def create_payload(self) -> dict:
+        """Creates the fake data payload"""
+
+        region_to_locale = {
+                "US": "en_US",
+                "UK": "en_GB",
+                "CA": "en_CA",
+                "AU": "en_AU",
+                "DE": "de_DE",
+                "FR": "fr_FR",
+                "JP": "ja_JP",
+                "BR": "pt_BR",
+                "IN": "en_IN",
+                "IT": "it_IT"
+        }
+
+        region = self.current_region.get()
+        faker = Faker(region_to_locale.get(region, "en_US"))
+
+    def replace_generators(self, template: dict) -> dict:
+        ...
 
     def update_progress(self):
         self.progress_bar["value"] = self.stats["requests_sent"]
@@ -918,7 +1037,7 @@ class LureBuster:
                 self.status_plot.set_title('Request Status', color=self.fg_color)
                 self.status_canvas.draw()
 
-            time.sleep(2)
+            time.sleep(0.5)
 
     def attack_completed(self):
         self.running = False
