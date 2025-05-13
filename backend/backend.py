@@ -8,6 +8,7 @@ class LureBusterBackend:
 
     def get_faker_providers(self) -> list:
         for provider in self.faker.providers:
+            pass
 
 
 if __name__ == '__main__':
