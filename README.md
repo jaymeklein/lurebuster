@@ -9,7 +9,8 @@ Designed to combat phishing by flooding scam sites with deceptive data, LureBust
 - **Data Flood**: Generates a huge amount of data
 - **Random Data**: Mimics real user data using [Faker](https://github.com/joke2k/faker)
 - **Parametrized Data**: Dynamically change payloads, using predefined placeholders
-  - Example: 'Her first name is {{PERSON_first_name_female}}, and her last name is {{PERSON_last_name_female}}'
+  - Example: 'Her first name is **{{PERSON_first_name_female}}**, and her last name is **{{PERSON_last_name_female}}**'
+  - Result: 'Her first name is **Michelle**, and her last name is **Gardner**'
   - Internally this will call Faker's [Providers](https://faker.readthedocs.io/en/stable/providers.html) methods.
 - **Multi-Threaded**: Concurrent request engine
 - **JSON Templates**: Save/load attack profiles
