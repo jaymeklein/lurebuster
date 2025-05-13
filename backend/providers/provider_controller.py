@@ -63,7 +63,7 @@ class ProvidersController:
         pattern = re.escape(placeholder)
 
         subs = pservice.call(method, *args, **kwargs)
-        return text.replace(pattern, subs)
+        return re.sub(pattern, subs, text)
 
     def _replace_no_repeat_values(self, pservice: ProviderService, method: str,
                                   parameters: dict, text: str, placeholder: str) -> str:
@@ -184,5 +184,6 @@ class ProvidersController:
 
 if __name__ == '__main__':
     providers_controller = ProvidersController()
-    res = providers_controller.replace_placeholders('The name of the user was {{PERSON_name}}')
+    res = providers_controller.replace_placeholders('The name of the user was {{PERSON_name}} {{PERSON_name}}', True)
+    res = providers_controller.replace_placeholders('The name of the user was {{PERSON_name}} {{PERSON_name}}')
     pass
