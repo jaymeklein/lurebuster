@@ -2,28 +2,20 @@ import re
 from typing import Any, Callable
 
 import faker
+from faker.config import AVAILABLE_LOCALES
+from providers.provider_service import ProviderService
 
-from backend.providers.provider_service import ProviderService
 
-
-class ProvidersController:
+class ProviderController:
     """Controller responsible for identifying and replacing placeholders on text"""
 
     providers_services = {}
     providers_services_names = []
 
     def __init__(self, locale: str = 'en_US'):
+        self._validate_locale(locale)
         self.faker = faker.Faker(locale=locale)
         self._generate_providers_services()
-
-    def _generate_providers_services(self):
-        """Gets all the available providers for the specified locale, defaults to en_US"""
-        all_providers = self.faker.get_providers()
-        for provider in all_providers:
-            provider_service = ProviderService(provider)
-            self.providers_services[provider_service.name.upper()] = provider_service
-
-        self.providers_services_names = list(self.providers_services.keys())
 
     def replace_placeholders(self, text: str, repeat: bool = False) -> str:
         placeholders = self._search_placeholders(text)
@@ -46,6 +38,21 @@ class ProvidersController:
             text = self._replace_no_repeat_values(provider, method, parameters, text, data['placeholder'])
 
         return text
+
+    @staticmethod
+    def _validate_locale(locale: str):
+        if locale not in AVAILABLE_LOCALES:
+            raise ValueError(f'Locale "{locale}" not available.')
+
+    def _generate_providers_services(self):
+        """Gets all the available providers for the specified locale, defaults to en_US"""
+
+        all_providers = self.faker.get_providers()
+        for provider in all_providers:
+            provider_service = ProviderService(provider)
+            self.providers_services[provider_service.name.upper()] = provider_service
+
+        self.providers_services_names = list(self.providers_services.keys())
 
     def _replace_repeat_values(self, pservice: ProviderService, method: str,
                                parameters: dict, text: str, placeholder: str) -> str:
@@ -183,7 +190,7 @@ class ProvidersController:
 
 
 if __name__ == '__main__':
-    providers_controller = ProvidersController()
+    providers_controller = ProviderController()
     res = providers_controller.replace_placeholders('The name of the user was {{PERSON_name}} {{PERSON_name}}', True)
     res = providers_controller.replace_placeholders('The name of the user was {{PERSON_name}} {{PERSON_name}}')
     pass
