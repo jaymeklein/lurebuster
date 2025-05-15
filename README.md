@@ -9,7 +9,8 @@ Designed to combat phishing by flooding scam sites with deceptive data, LureBust
 - **Data Flood**: Generates a huge amount of data
 - **Random Data**: Mimics real user data using [Faker](https://github.com/joke2k/faker)
 - **Parametrized Data**: Dynamically change payloads, using predefined placeholders
-  - Example: 'Her first name is {{PERSON_first_name_female}}, and her last name is {{PERSON_last_name_female}}'
+  - Example: 'Her first name is **{{PERSON_first_name_female}}**, and her last name is **{{PERSON_last_name_female}}**'
+  - Result: 'Her first name is **Michelle**, and her last name is **Gardner**'
   - Internally this will call Faker's [Providers](https://faker.readthedocs.io/en/stable/providers.html) methods.
 - **Multi-Threaded**: Concurrent request engine
 - **JSON Templates**: Save/load attack profiles
@@ -34,6 +35,17 @@ This tool is designed for:
 - Legitimate load testing of owned infrastructure
   
 ⚠️ *Never test systems without explicit authorization.*
+
+## 📐 Placeholder Structure
+Text placeholders follow [Providers](https://faker.readthedocs.io/en/stable/providers.html) method structure:
+- Wrapped with double curly brackets: `{{...}}`
+- Starts with an uppercase provider class: `{{USER_AGENT...}}`
+  - eg: [USER_AGENT](https://faker.readthedocs.io/en/stable/providers/faker.providers.user_agent.html)
+- Followed by an existing method for that provider:
+  - Method without parameters: `{{USER_AGENT_android_platform_token}}`
+  - Method with positional parameters: `{{USER_AGENT_chrome(13,63,800,899)}}`
+  - Method with keyword parameters: `{{USER_AGENT_chrome(version_from=13,version_to=63,build_from=800,build_to=899)}}`
+  - Method with default parameters: `{{USER_AGENT_chrome}}`
 
 ## 🐱 Code Reviews by Haxi  
 Our Chief Meowker Officer ensures:  
