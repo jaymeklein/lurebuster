@@ -121,9 +121,6 @@ class ProviderService:
             placeholder = "{{" + f"{self.name.upper()}_{method}" + parameters + "}}"
             self.placeholders[method] = placeholder
 
-    def _get_placeholders_from_string(self, string: str) -> list[str]:
-        ...
-
 
 if __name__ == '__main__':
     faker = faker.Faker()

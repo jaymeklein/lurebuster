@@ -69,7 +69,7 @@ class ProviderController:
         kwargs = parameters.get('kwargs', {})
         pattern = re.escape(placeholder)
 
-        subs = pservice.call(method, *args, **kwargs)
+        subs = str(pservice.call(method, *args, **kwargs))
         return re.sub(pattern, subs, text)
 
     def _replace_no_repeat_values(self, pservice: ProviderService, method: str,
@@ -138,7 +138,7 @@ class ProviderController:
 
     def _get_method_and_parameters_from_placeholder(self, placeholder: str) -> tuple[Callable, dict] | None:
         clean = self._clear_placeholder(placeholder)
-        method_and_parameters = re.match(r'[A-Z_]+_([a-z_]+)_*(?:\((.*)\))*', clean)
+        method_and_parameters = re.match(r'[A-Z_0-9]+_([a-z_0-9]+)_*(?:\((.*)\))*', clean)
 
         if not method_and_parameters.groups():
             return None, None

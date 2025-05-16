@@ -3,38 +3,41 @@ import tkinter as tk
 from tkinter import simpledialog, ttk, scrolledtext, messagebox
 import threading
 import time
-import random
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from faker import Faker
 
 from datetime import datetime
 from PIL import Image, ImageTk
 
-from backend.backend import LureBusterBackend
+from backend.backend import Backend
+
+from backend.backend import logger
 
 
 class LureBuster:
-    request_threads = []
     running = False
 
     def __init__(self, root):
-        self.backend = LureBusterBackend()
+        self.backend = Backend()
 
         self.root = root
         self.root.title("LureBuster - Phishing Site Disruptor")
         self.root.geometry("1200x800")
-        self.root.minsize(1000, 700)
-        self.root.maxsize(1000, 700)
+        self.root.minsize(1000, 1000)
+        self.root.maxsize(1500, 1200)
         self.set_theme()
         self.target_url = tk.StringVar()
+        self.request_method = tk.StringVar()
         self.request_count = tk.IntVar(value=100)
-        self.threads_count = tk.IntVar(value=5)
+        self.thread_count = tk.IntVar(value=5)
         self.delay = tk.DoubleVar(value=0.5)
 
         self.current_region = tk.StringVar(value="US")
         self.create_ui()
+
+        self.backend.register_stats_callback(self.update_progress)
+        self.backend.register_finish_run_callback(self.finish_run)
 
     def set_theme(self):
         style = ttk.Style()
@@ -155,7 +158,7 @@ class LureBuster:
 
         method_combo = ttk.Combobox(
                 url_frame,
-                textvariable=self.backend.selected_template.get('request_data', {}).get('method', 'GET'),
+                textvariable=self.request_method,
                 values=self.backend.config.request_methods,
                 width=10,
                 state='readonly'
@@ -175,14 +178,14 @@ class LureBuster:
         count_label = ttk.Label(count_frame, text="Number of Requests:")
         count_label.pack(side=tk.LEFT)
 
-        count_spinbox = ttk.Spinbox(
+        self.requests_count_spinbox = ttk.Spinbox(
                 count_frame,
                 from_=1,
-                to=10000,
-                textvariable=self.backend.selected_template.get('config', {}).get('request_count', 100),
+                textvariable=self.request_count,
                 width=10
         )
-        count_spinbox.pack(side=tk.RIGHT)
+        self.requests_count_spinbox.pack(side=tk.RIGHT)
+        self.request_count.set(self.backend.selected_template['config']['request_count'])
 
         threads_frame = ttk.Frame(params_frame)
         threads_frame.pack(fill=tk.X, pady=5)
@@ -194,7 +197,7 @@ class LureBuster:
                 threads_frame,
                 from_=1,
                 to=50,
-                textvariable=self.backend.selected_template.get('config', {}).get('thread_count', 5),
+                textvariable=self.thread_count,
                 width=10
         )
         threads_spinbox.pack(side=tk.RIGHT)
@@ -210,7 +213,7 @@ class LureBuster:
                 from_=0.0,
                 to=10.0,
                 increment=0.1,
-                textvariable=self.backend.selected_template.get('config', {}).get('request_delay', 0.5),
+                textvariable=self.delay,
                 width=10
         )
         delay_spinbox.pack(side=tk.RIGHT)
@@ -223,7 +226,7 @@ class LureBuster:
 
         region_combo = ttk.Combobox(
                 region_frame,
-                textvariable=self.backend.selected_template.get('config', {}).get('data_region', 'US'),
+                textvariable=self.current_region,
                 values=self.backend.config.data_regions,
                 width=10,
                 state='readonly'
@@ -233,14 +236,6 @@ class LureBuster:
         buttons_frame = ttk.Frame(left_frame)
         buttons_frame.pack(fill=tk.X, pady=(0, 10))
 
-        select_template_button = ttk.Button(
-                buttons_frame,
-                text="Select Template",
-                command=self.select_template_for_attack
-        )
-        select_template_button.pack(side=tk.LEFT, padx=5)
-
-        # Add a label to show selected template
         self.template_label = ttk.Label(
                 buttons_frame,
                 text="No template selected",
@@ -416,63 +411,14 @@ class LureBuster:
                 wraplength=800
         )
         help_text.pack(padx=5, pady=5)
-
-        self.current_template = None
         self.load_templates()
 
     def load_templates(self):
-        self.backend.load_templates_file()
         loaded_templates = self.backend.templates
 
         self.templates_listbox.delete(0, tk.END)
         for name in loaded_templates.keys():
             self.templates_listbox.insert(tk.END, name)
-
-    def select_template_for_attack(self):
-        """Open a dialog to select which template to use for the attack"""
-        if not self.templates:
-            messagebox.showwarning("Warning", "No templates available")
-            return
-
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Select Template")
-        dialog.geometry("300x300")
-
-        listbox = tk.Listbox(
-                dialog,
-                bg=self.bg_color,
-                fg=self.fg_color,
-                selectbackground=self.accent_color,
-                selectforeground="white",
-                height=5
-        )
-        listbox.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        for name in self.templates:
-            listbox.insert(tk.END, name)
-
-        def on_select():
-            selection = listbox.curselection()
-            if selection:
-                self.selected_template = listbox.get(selection[0])
-                self.template_label.config(
-                        text=f"Template: {self.selected_template}",
-                        foreground=self.fg_color
-                )
-                dialog.destroy()
-
-        button_frame = ttk.Frame(dialog)
-        button_frame.pack(padx=5, pady=(0, 5))
-
-        ttk.Button(
-                button_frame,
-                text="Select",
-                command=on_select,
-        ).pack(side=tk.RIGHT)
-
-        dialog.transient(self.root)
-        dialog.grab_set()
-        dialog.wait_window(dialog)
 
     def build_analytics_tab(self, parent):
         info_frame = ttk.Frame(parent)
@@ -640,7 +586,7 @@ class LureBuster:
         pwd_combo = ttk.Combobox(
                 pwd_frame,
                 textvariable=self.pwd_var,
-                values=self.backend.config.password_complexities.keys(),
+                values=list(self.backend.config.password_complexities.keys()),
                 width=10
         )
 
@@ -725,6 +671,13 @@ class LureBuster:
 
             self.backend.save_template(self.backend.selected_template_name, template_data)
             self.backend.save_templates()
+            self.backend.load_templates_file()
+            self.load_templates()
+
+            self.template_label.config(
+                    text=f"Template: {self.backend.selected_template_name}",
+                    foreground=self.fg_color
+            )
             messagebox.showinfo("Success", "Template saved successfully")
 
         except json.JSONDecodeError as e:
@@ -732,6 +685,26 @@ class LureBuster:
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save template: {str(e)}")
+
+        self.load_template_data()
+
+    def load_template_data(self):
+        data = self.backend.selected_template.copy()
+
+        self.request_count.set(data['config']['request_count'])
+        self.thread_count.set(data['config']['thread_count'])
+        self.delay.set(data['config']['request_delay'])
+
+        self.target_url.set(data['request']['url'])
+        self.request_method.set(data['request']['method'])
+
+        self.current_region.set(data['config']['data_region'])
+        self.pwd_var.set(data['config']['password_complexity'])
+
+        self.template_label.config(
+                text=f"Template: {self.backend.selected_template_name}",
+                foreground=self.fg_color
+        )
 
     def on_template_select(self, event):
         """Handle template selection from listbox"""
@@ -741,14 +714,17 @@ class LureBuster:
 
         selected_name = self.templates_listbox.get(selection[0])
         self.backend.load_template(selected_name)
+        self.template_editor.delete(1.0, tk.END)
+        self.template_editor.insert(tk.INSERT, json.dumps(self.backend.selected_template, indent=4))
+        self.load_template_data()
 
     def save_settings(self):
         # This does not work yet
         self.log_message("Settings saved")
         messagebox.showinfo("Settings Saved", "Your settings have been saved.")
 
-    def start_attack(self):
-        url = self.target_url.get().strip()
+    def start_attack(self, test: bool = False):
+        url = self.backend.selected_template.get('request', {}).get('url', '').strip()
         if not url:
             messagebox.showerror("Error", "Please enter a target URL")
             return
@@ -761,163 +737,113 @@ class LureBuster:
             messagebox.showerror("Error", "Number of requests must be greater than 0")
             return
 
-        if self.threads_count.get() <= 0:
+        if self.thread_count.get() <= 0:
             messagebox.showerror("Error", "Number of threads must be greater than 0")
             return
 
         if not messagebox.askyesno("Confirm Attack",
-                                   f"Are you sure you want to send {self.request_count.get()} requests to {url}?\n\n"
+                                   f"Are you sure you want to send {self.request_count.get() if not test else 1} "
+                                   f"request(s) to {url}?\n\n"
                                    "This tool should only be used for educational purposes and security testing "
                                    "on systems you have permission to test."):
             return
 
-        self.select_template_for_attack()
-        if not self.selected_template:
+        if not self.backend.selected_template:
             return
 
-        self.stats = {
-                "requests_sent"      : 0,
-                "successful_requests": 0,
-                "failed_requests"    : 0,
-                "start_time"         : time.time(),
-                "end_time"           : None,
-                "request_times"      : [],
-                "request_rates"      : []
-        }
+        if not test:
+            self.backend.stats = self.backend.config.default_stats
 
-        self.running = True
-        self.start_button.config(state=tk.DISABLED)
-        self.stop_button.config(state=tk.NORMAL)
-        self.progress_bar["maximum"] = self.request_count.get()
-        self.progress_bar["value"] = 0
-        self.progress_label.config(text=f"0/{self.request_count.get()} requests completed")
-        self.status_label.config(text="Running attack...")
+            self.running = True
+            self.start_button.config(state=tk.DISABLED)
+            self.stop_button.config(state=tk.NORMAL)
+            self.progress_bar["maximum"] = self.request_count.get()
+            self.progress_bar["value"] = 0
+            self.progress_label.config(text=f"0/{self.request_count.get()} requests completed")
+            self.status_label.config(text="Running attack...")
 
-        self.log_text.config(state=tk.NORMAL)
-        self.log_text.delete(1.0, tk.END)
-        self.log_text.config(state=tk.DISABLED)
+            self.log_text.config(state=tk.NORMAL)
+            self.log_text.delete(1.0, tk.END)
+            self.log_text.config(state=tk.DISABLED)
 
-        self.log_message(f"Starting attack on {url}")
-        self.log_message(f"Sending {self.request_count.get()} requests using {self.threads_count.get()} threads")
+            self.log_message(f"Starting attack on {url}")
+            self.log_message(f"Sending {self.request_count.get()} requests using {self.thread_count.get()} threads")
 
-        self.timer_thread = threading.Thread(target=self.update_timer)
-        self.timer_thread.daemon = True
-        self.timer_thread.start()
+            self.timer_thread = threading.Thread(target=self.update_timer)
+            self.timer_thread.daemon = True
+            self.timer_thread.start()
 
-        self.request_threads = []
-        for i in range(self.threads_count.get()):
-            thread = threading.Thread(target=self.send_requests, args=(i + 1,))
-            thread.daemon = True
-            thread.start()
-            self.request_threads.append(thread)
+            self.chart_thread = threading.Thread(target=self.update_charts)
+            self.chart_thread.daemon = True
+            self.chart_thread.start()
 
-        self.chart_thread = threading.Thread(target=self.update_charts)
-        self.chart_thread.daemon = True
-        self.chart_thread.start()
+        self.attack_thread = threading.Thread(target=self.backend.start_attack, args=(test,), kwargs={
+                "data": {
+                        "url"          : self.target_url.get(),
+                        "method"       : self.request_method.get(),
+                        "request_count": self.request_count.get(),
+                        "thread_count" : self.thread_count.get(),
+                        "request_delay": self.delay.get(),
+                        "data_region"  : self.current_region.get()
+                }
+        })
+        self.attack_thread.daemon = True
+        self.attack_thread.start()
+
+    def finish_run(self):
+        self.running = False
+        self.backend.stats["end_time"] = time.time()
+        self.root.after(0, self.attack_completed)
 
     def stop_attack(self):
         self.running = False
         self.status_label.config(text="Stopping attack...")
         self.log_message("Stopping attack...")
 
-        for thread in self.request_threads:
-            if thread.is_alive():
-                thread.join(1.0)  # Wait with timeoutn
+        self.backend.stop_threads()
 
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         self.status_label.config(text="Attack stopped")
         self.log_message("Attack stopped")
 
-        if self.stats["end_time"] is None:
-            self.stats["end_time"] = time.time()
-
         self.add_to_history()
 
-    def send_requests(self, thread_id):
-        url = self.target_url.get()
-        count = self.request_count.get()
-        delay = self.delay.get()
-
-        sending_template = self.selected_template.copy()
-
-        while self.running and self.stats["requests_sent"] < count:
-            email = faker.email()
-            password_complexity = self.pwd_var.get()
-            password = faker.password(length=self.password_compexities.get(password_complexity, 6))
-            user_agent = faker.user_agent()
-
-            sending_template["headers"]["User-Agent"] = user_agent
-            sending_template["form_fields"]["email"] = email
-            sending_template["form_fields"]["password"] = password
-
-            try:
-                success = random.random() > 0.1
-
-                status = "SUCCESS" if success else "FAILED"
-                self.log_message(f"Thread {thread_id}: Sent request with email {email} - {status}")
-
-                self.stats["requests_sent"] += 1
-                if success:
-                    self.stats["successful_requests"] += 1
-                else:
-                    self.stats["failed_requests"] += 1
-
-                current_time = time.time() - self.stats["start_time"]
-                self.stats["request_times"].append(current_time)
-
-                if len(self.stats["request_times"]) > 1:
-                    recent_times = self.stats["request_times"][-10:]
-                    if len(recent_times) > 1:
-                        time_diff = recent_times[-1] - recent_times[0]
-                        if time_diff > 0:
-                            rate = len(recent_times) / time_diff
-                            self.stats["request_rates"].append((current_time, rate))
-
-                self.update_progress()
-
-                if self.stats["requests_sent"] >= count:
-                    if self.running:
-                        self.stats["end_time"] = time.time()
-                        self.root.after(0, self.attack_completed)
-                    break
-
-                time.sleep(delay)
-
-            except Exception as e:
-                self.log_message(f"Thread {thread_id}: Error sending request: {str(e)}")
-                self.stats["requests_sent"] += 1
-                self.stats["failed_requests"] += 1
-                self.update_progress()
-                time.sleep(delay)
-
     def update_progress(self):
-        self.progress_bar["value"] = self.stats["requests_sent"]
-        self.progress_label.config(text=f"{self.stats['requests_sent']}/{self.request_count.get()} requests completed")
-        self.sent_label.config(text=str(self.stats["requests_sent"]))
-        self.success_label.config(text=str(self.stats["successful_requests"]))
-        self.failed_label.config(text=str(self.stats["failed_requests"]))
+        # Schedule the actual update on the main thread to avoid threading issues
+        self.root.after(0, self._update_progress_ui)
 
-        if self.stats["start_time"]:
-            elapsed = time.time() - self.stats["start_time"]
+    def _update_progress_ui(self):
+        """Update UI elements with the latest stats from the backend"""
+        self.progress_bar["value"] = self.backend.stats["requests_sent"]
+        self.progress_label.config(text=f"{self.backend.stats['requests_sent']}/{self.request_count.get()} requests "
+                                        f"completed")
+        self.sent_label.config(text=str(self.backend.stats["requests_sent"]))
+        self.success_label.config(text=str(self.backend.stats["successful_requests"]))
+        self.failed_label.config(text=str(self.backend.stats["failed_requests"]))
+
+        if self.backend.stats["start_time"]:
+            elapsed = time.time() - self.backend.stats["start_time"]
             if elapsed > 0:
-                rate = self.stats["requests_sent"] / elapsed
+                rate = self.backend.stats["requests_sent"] / elapsed
                 self.rate_label.config(text=f"{rate:.1f}")
 
     def update_timer(self):
         while self.running:
-            if self.stats["start_time"]:
-                elapsed = time.time() - self.stats["start_time"]
-                hours, remainder = divmod(int(elapsed), 3600)
-                minutes, seconds = divmod(remainder, 60)
-                time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                self.time_label.config(text=time_str)
+            if not self.backend.stats["start_time"]:
+                continue
+
+            elapsed = time.time() - self.backend.stats["start_time"]
+            hours, remainder = divmod(int(elapsed), 3600)
+            minutes, seconds = divmod(remainder, 60)
+            time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+            self.time_label.config(text=time_str)
             time.sleep(1)
 
     def update_charts(self):
         while self.running:
-            if len(self.stats["request_rates"]) > 1:
-                times, rates = zip(*self.stats["request_rates"])
+            if len(self.backend.stats["request_rates"]) > 1:
+                times, rates = zip(*self.backend.stats["request_rates"])
 
                 self.rate_plot.clear()
                 self.rate_plot.plot(times, rates, color=self.accent_color)
@@ -929,7 +855,7 @@ class LureBuster:
                 self.rate_canvas.draw()
 
             labels = ['Success', 'Failed']
-            sizes = [self.stats["successful_requests"], self.stats["failed_requests"]]
+            sizes = [self.backend.stats["successful_requests"], self.backend.stats["failed_requests"]]
             colors = [self.success_color, self.warning_color]
 
             self.status_plot.clear()
@@ -948,44 +874,27 @@ class LureBuster:
         self.log_message("Attack completed")
 
         self.add_to_history()
-
-        elapsed = self.stats["end_time"] - self.stats["start_time"]
-        hours, remainder = divmod(int(elapsed), 3600)
-        minutes, seconds = divmod(remainder, 60)
-        time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-        success_rate = 0
-        if self.stats["requests_sent"] > 0:
-            success_rate = (self.stats["successful_requests"] / self.stats["requests_sent"]) * 100
-
         messagebox.showinfo("Attack Summary",
                             f"Attack completed\n\n"
                             f"Target: {self.target_url.get()}\n"
-                            f"Requests sent: {self.stats['requests_sent']}\n"
-                            f"Successful: {self.stats['successful_requests']} ({success_rate:.1f}%)\n"
-                            f"Failed: {self.stats['failed_requests']}\n"
-                            f"Duration: {time_str}\n")
+                            f"Requests sent: {self.backend.stats['requests_sent']}\n"
+                            f"Successful: {self.backend.stats['successful_requests']} ("
+                            f"{data.get('success_rate'):.1f}%)\n"
+                            f"Failed: {self.backend.stats['failed_requests']}\n"
+                            f"Duration: {data.get('time_str')}\n")
 
     def add_to_history(self):
-        if self.stats["start_time"] and self.stats["end_time"]:
-            elapsed = self.stats["end_time"] - self.stats["start_time"]
-            hours, remainder = divmod(int(elapsed), 3600)
-            minutes, seconds = divmod(remainder, 60)
-            time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        if not self.backend.stats["start_time"] or not self.backend.stats["end_time"]:
+            return
 
-            success_rate = 0
-            if self.stats["requests_sent"] > 0:
-                success_rate = (self.stats["successful_requests"] / self.stats["requests_sent"]) * 100
-
-            date_str = datetime.fromtimestamp(self.stats["start_time"]).strftime("%Y-%m-%d %H:%M")
-
-            self.history_tree.insert("", 0, values=(
-                    date_str,
-                    self.target_url.get(),
-                    str(self.stats["requests_sent"]),
-                    f"{success_rate:.1f}%",
-                    time_str
-            ))
+        data = self.backend.add_to_history()
+        self.history_tree.insert("", 0, values=(
+                data.get('date_str'),
+                self.target_url.get(),
+                str(self.backend.stats["requests_sent"]),
+                f"{float(data.get('success_rate')):.1f}%",
+                data.get('time_str')
+        ))
 
     def log_message(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -996,7 +905,7 @@ class LureBuster:
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
 
-        logging.info(message)
+        logger.info(message)
 
 
 def main():

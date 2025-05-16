@@ -35,26 +35,26 @@ class Config:
     @property
     def default_template(self) -> dict:
         return {
-                "name"        : "Example Template",
-                "request_data": {
+                "name"       : "Example Template",
+                "request"    : {
                         "method": "POST",
                         "url"   : "https://example.com/login",
                 },
-                "headers"     : {
+                "headers"    : {
                         "User-Agent"     : "{{user_agent}}",
                         "Content-Type"   : "application/x-www-form-urlencoded",
                         "Accept"         : "text/html,application/xhtml+xml,application/xml;q=0.9,"
                                            "image/webp,*/*;q=0.8",
                         "Accept-Language": "en-US,en;q=0.5"
                 },
-                "form_fields" : {
+                "form_fields": {
                         "username"    : "{{INTERNET_user_name}}",
                         "password"    : "{{MISC_password}}",
                         "email"       : "{{INTERNET_free_email}}",
                         "address"     : "{{ADDRESS_address}}",
                         "phone_number": "{{PHONE_NUMBER_msisdn}}",
                 },
-                "config"      : {
+                "config"     : {
                         "data_region"        : "BR",
                         "password_complexity": "Random",
                         "request_count"      : 1000,
@@ -70,7 +70,9 @@ class Config:
                 "successful_requests": 0,
                 "failed_requests"    : 0,
                 "start_time"         : None,
-                "end_time"           : None
+                "end_time"           : None,
+                "request_rates"      : [],
+                "request_times"      : []
         }
 
     @property
