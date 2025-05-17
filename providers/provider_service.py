@@ -8,6 +8,7 @@ from faker.providers import BaseProvider
 
 class ProviderService:
     """Provider Service class used to dynamically manage Faker providers"""
+
     _parent_methods = {}
 
     def __init__(self, provider: BaseProvider):
@@ -45,7 +46,7 @@ class ProviderService:
 
     def _get_provider_name(self):
         full = self._provider.__provider__
-        self.name = full.split('.').pop()
+        self.name = full.split(".").pop()
 
     def _get_callable(self, method: str) -> Callable:
         """Gets the callable from the list of non-inherited methods"""
@@ -60,7 +61,7 @@ class ProviderService:
         """Returns a dictionary of method names with their parameter info for a Faker provider"""
 
         for name, method in inspect.getmembers(provider, callable):
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
 
             sig = inspect.signature(method)
@@ -75,16 +76,18 @@ class ProviderService:
 
         params_info = {}
         for param_name, param in signature.parameters.items():
-            if param_name == 'self':
+            if param_name == "self":
                 continue
 
-            default = param.default if param.default is not inspect.Parameter.empty else None
+            default = (
+                param.default if param.default is not inspect.Parameter.empty else None
+            )
             param_type = self._get_param_type(param)
 
             params_info[param_name] = {
-                    'type'   : param_type,
-                    'default': default,
-                    'kind'   : str(param.kind)
+                "type": param_type,
+                "default": default,
+                "kind": str(param.kind),
             }
 
         return params_info
@@ -114,7 +117,7 @@ class ProviderService:
         Example 4:
         """
         for method, parameters in self.methods.items():
-            parameters = ', '.join(list(parameters.keys()))
+            parameters = ", ".join(list(parameters.keys()))
             if parameters:
                 parameters = f"_({parameters})"
 
@@ -122,7 +125,7 @@ class ProviderService:
             self.placeholders[method] = placeholder
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     faker = faker.Faker()
 
     # Using any provider from Faker

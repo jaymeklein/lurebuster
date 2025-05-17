@@ -1,18 +1,15 @@
 import json
-import tkinter as tk
-from tkinter import simpledialog, ttk, scrolledtext, messagebox
 import threading
 import time
+import tkinter as tk
+from datetime import datetime
+from tkinter import messagebox, scrolledtext, simpledialog, ttk
 
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
-from datetime import datetime
 from PIL import Image, ImageTk
 
-from backend.backend import Backend
-
-from backend.backend import logger
+from backend.backend import Backend, logger
 
 
 class LureBuster:
@@ -23,9 +20,9 @@ class LureBuster:
 
         self.root = root
         self.root.title("LureBuster - Phishing Site Disruptor")
-        self.root.geometry("1200x800")
-        self.root.minsize(1000, 1000)
-        self.root.maxsize(1500, 1200)
+        self.root.geometry("1000x1400")
+        self.root.minsize(1500, 1000)
+        self.root.maxsize(1500, 1000)
         self.set_theme()
         self.target_url = tk.StringVar()
         self.request_method = tk.StringVar()
@@ -38,10 +35,11 @@ class LureBuster:
 
         self.backend.register_stats_callback(self.update_progress)
         self.backend.register_finish_run_callback(self.finish_run)
+        self.backend.register_activity_log_callback(self.log_message)
 
     def set_theme(self):
         style = ttk.Style()
-        style.theme_use('clam')
+        style.theme_use("clam")
 
         self.bg_color = "#ffffff"
         self.fg_color = "#000000"
@@ -49,34 +47,46 @@ class LureBuster:
         self.success_color = "#a6e3a1"
         self.warning_color = "#f44336"
 
-        style.configure('TFrame', background=self.bg_color)
-        style.configure('TLabel', background=self.bg_color, foreground=self.fg_color)
-        style.configure('TButton',
-                        background=self.accent_color,
-                        foreground='white',
-                        font=('Helvetica', 10, 'bold'),
-                        padding=5)
-        style.map('TButton',
-                  background=[('active', self.bg_color)],
-                  foreground=[('active', self.fg_color)], )
-        style.configure('TEntry',
-                        fieldbackground=self.bg_color,
-                        foreground=self.fg_color,
-                        insertcolor=self.fg_color)
-        style.configure('TSpinbox',
-                        fieldbackground=self.bg_color,
-                        foreground=self.fg_color)
-        style.configure('Horizontal.TProgressbar',
-                        background=self.accent_color,
-                        troughcolor=self.bg_color)
-        style.configure('TNotebook', background=self.bg_color)
-        style.configure('TNotebook.Tab',
-                        background=self.bg_color,
-                        foreground=self.fg_color,
-                        padding=[10, 5])
-        style.map('TNotebook.Tab',
-                  background=[('selected', self.accent_color)],
-                  foreground=[('selected', 'white')])
+        style.configure("TFrame", background=self.bg_color)
+        style.configure("TLabel", background=self.bg_color, foreground=self.fg_color)
+        style.configure(
+                "TButton",
+                background=self.accent_color,
+                foreground="white",
+                font=("Helvetica", 10, "bold"),
+                padding=5,
+        )
+        style.map(
+                "TButton",
+                background=[("active", self.bg_color)],
+                foreground=[("active", self.fg_color)],
+        )
+        style.configure(
+                "TEntry",
+                fieldbackground=self.bg_color,
+                foreground=self.fg_color,
+                insertcolor=self.fg_color,
+        )
+        style.configure(
+                "TSpinbox", fieldbackground=self.bg_color, foreground=self.fg_color
+        )
+        style.configure(
+                "Horizontal.TProgressbar",
+                background=self.accent_color,
+                troughcolor=self.bg_color,
+        )
+        style.configure("TNotebook", background=self.bg_color)
+        style.configure(
+                "TNotebook.Tab",
+                background=self.bg_color,
+                foreground=self.fg_color,
+                padding=[10, 5],
+        )
+        style.map(
+                "TNotebook.Tab",
+                background=[("selected", self.accent_color)],
+                foreground=[("selected", "white")],
+        )
         self.style = style
 
         self.root.configure(bg=self.bg_color)
@@ -88,7 +98,9 @@ class LureBuster:
         header_frame = ttk.Frame(main_frame)
         header_frame.pack(fill=tk.X, pady=(0, 10))
 
-        canvas = tk.Canvas(header_frame, width=60, height=60, bg=self.bg_color, highlightthickness=0)
+        canvas = tk.Canvas(
+                header_frame, width=60, height=60, bg=self.bg_color, highlightthickness=0
+        )
         canvas.pack(side=tk.LEFT, padx=(0, 10))
 
         pil_image = Image.open("assets/bait.jpg")
@@ -99,10 +111,14 @@ class LureBuster:
         title_frame = ttk.Frame(header_frame)
         title_frame.pack(side=tk.LEFT)
 
-        title_label = ttk.Label(title_frame, text="LureBuster", font=("Helvetica", 24, "bold"))
+        title_label = ttk.Label(
+                title_frame, text="LureBuster", font=("Helvetica", 24, "bold")
+        )
         title_label.pack(anchor=tk.W)
 
-        subtitle_label = ttk.Label(title_frame, text="Phishing Site Disruptor", font=("Helvetica", 12))
+        subtitle_label = ttk.Label(
+                title_frame, text="Phishing Site Disruptor", font=("Helvetica", 12)
+        )
         subtitle_label.pack(anchor=tk.W)
 
         warning_frame = ttk.Frame(main_frame)
@@ -113,7 +129,7 @@ class LureBuster:
                 text="⚠️ EDUCATIONAL OR AUTHORIZED TESTING PURPOSES ONLY: This tool is for security research, "
                      "testing and education. Misuse may violate laws.",
                 foreground=self.warning_color,
-                font=("Helvetica", 10, "italic")
+                font=("Helvetica", 10, "italic"),
         )
         warning_label.pack(fill=tk.X)
 
@@ -161,7 +177,7 @@ class LureBuster:
                 textvariable=self.request_method,
                 values=self.backend.config.request_methods,
                 width=10,
-                state='readonly'
+                state="readonly",
         )
         method_combo.current(0)
         method_combo.pack(side=tk.RIGHT, pady=(5, 0))
@@ -175,37 +191,32 @@ class LureBuster:
         count_frame = ttk.Frame(params_frame)
         count_frame.pack(fill=tk.X, pady=5)
 
-        count_label = ttk.Label(count_frame, text="Number of Requests:")
+        count_label = ttk.Label(count_frame, text="Requests per Thread:")
         count_label.pack(side=tk.LEFT)
 
         self.requests_count_spinbox = ttk.Spinbox(
-                count_frame,
-                from_=1,
-                textvariable=self.request_count,
-                width=10
+                count_frame, from_=1, textvariable=self.request_count, width=10
         )
         self.requests_count_spinbox.pack(side=tk.RIGHT)
-        self.request_count.set(self.backend.selected_template['config']['request_count'])
+        self.request_count.set(
+                self.backend.selected_template["config"]["request_count"]
+        )
 
         threads_frame = ttk.Frame(params_frame)
         threads_frame.pack(fill=tk.X, pady=5)
 
-        threads_label = ttk.Label(threads_frame, text="Number of Threads:")
+        threads_label = ttk.Label(threads_frame, text="Threads:")
         threads_label.pack(side=tk.LEFT)
 
         threads_spinbox = ttk.Spinbox(
-                threads_frame,
-                from_=1,
-                to=50,
-                textvariable=self.thread_count,
-                width=10
+                threads_frame, from_=1, to=50, textvariable=self.thread_count, width=10
         )
         threads_spinbox.pack(side=tk.RIGHT)
 
         delay_frame = ttk.Frame(params_frame)
         delay_frame.pack(fill=tk.X, pady=5)
 
-        delay_label = ttk.Label(delay_frame, text="Delay Between Requests (seconds):")
+        delay_label = ttk.Label(delay_frame, text="Seconds between requests (same thread):")
         delay_label.pack(side=tk.LEFT)
 
         delay_spinbox = ttk.Spinbox(
@@ -214,7 +225,7 @@ class LureBuster:
                 to=10.0,
                 increment=0.1,
                 textvariable=self.delay,
-                width=10
+                width=10,
         )
         delay_spinbox.pack(side=tk.RIGHT)
 
@@ -229,7 +240,7 @@ class LureBuster:
                 textvariable=self.current_region,
                 values=self.backend.config.data_regions,
                 width=10,
-                state='readonly'
+                state="readonly",
         )
         region_combo.pack(side=tk.RIGHT)
 
@@ -237,31 +248,24 @@ class LureBuster:
         buttons_frame.pack(fill=tk.X, pady=(0, 10))
 
         self.template_label = ttk.Label(
-                buttons_frame,
-                text="No template selected",
-                foreground="gray"
+                buttons_frame, text="No template selected", foreground="gray"
         )
         self.template_label.pack(side=tk.LEFT, padx=5)
 
         self.test_button = ttk.Button(
                 buttons_frame,
                 text="Test Attack",
-                command=lambda: self.start_attack(test=True)
+                command=lambda: self.start_attack(test=True),
         )
         self.test_button.pack(side=tk.LEFT, padx=(0, 5))
 
         self.start_button = ttk.Button(
-                buttons_frame,
-                text="Start Attack",
-                command=self.start_attack
+                buttons_frame, text="Start Attack", command=self.start_attack
         )
         self.start_button.pack(side=tk.LEFT, padx=(0, 5))
 
         self.stop_button = ttk.Button(
-                buttons_frame,
-                text="Stop",
-                command=self.stop_attack,
-                state=tk.DISABLED
+                buttons_frame, text="Stop", command=self.stop_attack, state=tk.DISABLED
         )
         self.stop_button.pack(side=tk.LEFT)
 
@@ -269,10 +273,7 @@ class LureBuster:
         progress_frame.pack(fill=tk.X, pady=(0, 10))
 
         self.progress_bar = ttk.Progressbar(
-                progress_frame,
-                orient=tk.HORIZONTAL,
-                length=100,
-                mode='determinate'
+                progress_frame, orient=tk.HORIZONTAL, length=100, mode="determinate"
         )
         self.progress_bar.pack(fill=tk.X, padx=5, pady=5)
 
@@ -285,23 +286,33 @@ class LureBuster:
         stats_inner_frame = ttk.Frame(stats_frame)
         stats_inner_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        ttk.Label(stats_inner_frame, text="Requests Sent:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        ttk.Label(stats_inner_frame, text="Requests Sent:").grid(
+                row=0, column=0, sticky=tk.W, pady=2
+        )
         self.sent_label = ttk.Label(stats_inner_frame, text="0")
         self.sent_label.grid(row=0, column=1, sticky=tk.E, pady=2)
 
-        ttk.Label(stats_inner_frame, text="Successful:").grid(row=1, column=0, sticky=tk.W, pady=2)
+        ttk.Label(stats_inner_frame, text="Successful:").grid(
+                row=1, column=0, sticky=tk.W, pady=2
+        )
         self.success_label = ttk.Label(stats_inner_frame, text="0")
         self.success_label.grid(row=1, column=1, sticky=tk.E, pady=2)
 
-        ttk.Label(stats_inner_frame, text="Failed:").grid(row=2, column=0, sticky=tk.W, pady=2)
+        ttk.Label(stats_inner_frame, text="Failed:").grid(
+                row=2, column=0, sticky=tk.W, pady=2
+        )
         self.failed_label = ttk.Label(stats_inner_frame, text="0")
         self.failed_label.grid(row=2, column=1, sticky=tk.E, pady=2)
 
-        ttk.Label(stats_inner_frame, text="Elapsed Time:").grid(row=3, column=0, sticky=tk.W, pady=2)
+        ttk.Label(stats_inner_frame, text="Elapsed Time:").grid(
+                row=3, column=0, sticky=tk.W, pady=2
+        )
         self.time_label = ttk.Label(stats_inner_frame, text="00:00:00")
         self.time_label.grid(row=3, column=1, sticky=tk.E, pady=2)
 
-        ttk.Label(stats_inner_frame, text="Requests/sec:").grid(row=4, column=0, sticky=tk.W, pady=2)
+        ttk.Label(stats_inner_frame, text="Requests/sec:").grid(
+                row=4, column=0, sticky=tk.W, pady=2
+        )
         self.rate_label = ttk.Label(stats_inner_frame, text="0.0")
         self.rate_label.grid(row=4, column=1, sticky=tk.E, pady=2)
 
@@ -318,7 +329,7 @@ class LureBuster:
                 height=20,
                 bg=self.bg_color,
                 fg=self.fg_color,
-                insertbackground=self.fg_color
+                insertbackground=self.fg_color,
         )
         self.log_text.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
         self.log_text.config(state=tk.DISABLED)
@@ -330,7 +341,7 @@ class LureBuster:
         info_label = ttk.Label(
                 info_frame,
                 text="Configure request templates to match the target phishing site's form structure.",
-                wraplength=800
+                wraplength=800,
         )
         info_label.pack(anchor=tk.W)
 
@@ -349,25 +360,21 @@ class LureBuster:
                 fg=self.fg_color,
                 selectbackground=self.accent_color,
                 selectforeground="white",
-                height=15
+                height=15,
         )
         self.templates_listbox.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
-        self.templates_listbox.bind('<<ListboxSelect>>', self.on_template_select)
+        self.templates_listbox.bind("<<ListboxSelect>>", self.on_template_select)
 
         template_buttons_frame = ttk.Frame(left_frame)
         template_buttons_frame.pack(fill=tk.X, pady=(5, 0))
 
         add_template_button = ttk.Button(
-                template_buttons_frame,
-                text="Add New",
-                command=self.add_template
+                template_buttons_frame, text="Add New", command=self.add_template
         )
         add_template_button.pack(side=tk.LEFT, padx=(0, 5))
 
         delete_template_button = ttk.Button(
-                template_buttons_frame,
-                text="Delete",
-                command=self.delete_template
+                template_buttons_frame, text="Delete", command=self.delete_template
         )
         delete_template_button.pack(side=tk.LEFT)
 
@@ -384,7 +391,7 @@ class LureBuster:
                 height=15,
                 bg=self.bg_color,
                 fg=self.fg_color,
-                insertbackground=self.fg_color
+                insertbackground=self.fg_color,
         )
         self.template_editor.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
 
@@ -393,9 +400,7 @@ class LureBuster:
         save_button_frame.pack(fill=tk.X, pady=(5, 0))
 
         save_template_button = ttk.Button(
-                save_button_frame,
-                text="Save Template",
-                command=self.save_template
+                save_button_frame, text="Save Template", command=self.save_template
         )
         save_template_button.pack(side=tk.RIGHT)
 
@@ -408,7 +413,7 @@ class LureBuster:
                      "How to build generators: "
                      "https://github.com/jaymeklein/lurebuster/blob/main/README.md#-placeholder-structure"
                      "Available placeholders can be found at https://faker.readthedocs.io/en/stable/providers.html",
-                wraplength=800
+                wraplength=800,
         )
         help_text.pack(padx=5, pady=5)
         self.load_templates()
@@ -427,7 +432,7 @@ class LureBuster:
         info_label = ttk.Label(
                 info_frame,
                 text="Real-time analytics of your phishing disruption campaigns.",
-                wraplength=800
+                wraplength=800,
         )
         info_label.pack(anchor=tk.W)
 
@@ -442,13 +447,13 @@ class LureBuster:
         self.rate_plot = self.rate_figure.add_subplot(111)
         self.rate_plot.set_facecolor(self.bg_color)
         self.rate_plot.tick_params(colors=self.fg_color)
-        self.rate_plot.spines['bottom'].set_color(self.fg_color)
-        self.rate_plot.spines['top'].set_color(self.fg_color)
-        self.rate_plot.spines['left'].set_color(self.fg_color)
-        self.rate_plot.spines['right'].set_color(self.fg_color)
-        self.rate_plot.set_xlabel('Time', color=self.fg_color)
-        self.rate_plot.set_ylabel('Requests/sec', color=self.fg_color)
-        self.rate_plot.set_title('Request Rate', color=self.fg_color)
+        self.rate_plot.spines["bottom"].set_color(self.fg_color)
+        self.rate_plot.spines["top"].set_color(self.fg_color)
+        self.rate_plot.spines["left"].set_color(self.fg_color)
+        self.rate_plot.spines["right"].set_color(self.fg_color)
+        self.rate_plot.set_xlabel("Time", color=self.fg_color)
+        self.rate_plot.set_ylabel("Requests/sec", color=self.fg_color)
+        self.rate_plot.set_title("Request Rate", color=self.fg_color)
 
         self.rate_canvas = FigureCanvasTkAgg(self.rate_figure, rate_frame)
         self.rate_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
@@ -461,7 +466,7 @@ class LureBuster:
         self.status_plot = self.status_figure.add_subplot(111)
         self.status_plot.set_facecolor(self.bg_color)
         self.status_plot.tick_params(colors=self.fg_color)
-        self.status_plot.set_title('Request Status', color=self.fg_color)
+        self.status_plot.set_title("Request Status", color=self.fg_color)
 
         self.status_canvas = FigureCanvasTkAgg(self.status_figure, status_frame)
         self.status_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
@@ -470,7 +475,9 @@ class LureBuster:
         history_frame.pack(fill=tk.X, pady=(10, 0))
 
         columns = ("date", "target", "requests", "success_rate", "duration")
-        self.history_tree = ttk.Treeview(history_frame, columns=columns, show="headings")
+        self.history_tree = ttk.Treeview(
+                history_frame, columns=columns, show="headings"
+        )
 
         self.history_tree.heading("date", text="Date")
         self.history_tree.heading("target", text="Target")
@@ -485,18 +492,34 @@ class LureBuster:
         self.history_tree.column("duration", width=100)
 
         self.start_button = ttk.Button(
-                history_frame,
-                text="Clear",
-                command=self.clear_history
+                history_frame, text="Clear", command=self.clear_history
         )
 
         self.start_button.pack(side=tk.LEFT, padx=(0, 5))
         self.history_tree.pack(fill=tk.X, padx=5, pady=5)
 
         example_data = [
-                ("2025-05-01 09:15", "https://paypal-secure.phishing.net", "2500", "95%", "00:08:55"),
-                ("2025-05-01 14:30", "https://fake-bank.phishing.com", "5000", "98%", "00:15:23"),
-                ("2025-05-01 18:20", "https://login-account.phishing.org", "10000", "99%", "00:30:12")
+                (
+                        "2025-05-01 09:15",
+                        "https://paypal-secure.phishing.net",
+                        "2500",
+                        "95%",
+                        "00:08:55",
+                ),
+                (
+                        "2025-05-01 14:30",
+                        "https://fake-bank.phishing.com",
+                        "5000",
+                        "98%",
+                        "00:15:23",
+                ),
+                (
+                        "2025-05-01 18:20",
+                        "https://login-account.phishing.org",
+                        "10000",
+                        "99%",
+                        "00:30:12",
+                ),
         ]
 
         for item in example_data:
@@ -518,7 +541,7 @@ class LureBuster:
         info_label = ttk.Label(
                 info_frame,
                 text="Configure application settings and data generation parameters.",
-                wraplength=800
+                wraplength=800,
         )
         info_label.pack(anchor=tk.W)
 
@@ -559,7 +582,7 @@ class LureBuster:
                 log_level_frame,
                 textvariable=self.log_level_var,
                 values=self.backend.config.log_levels.keys(),
-                width=10
+                width=10,
         )
         log_level_combo.pack(side=tk.RIGHT)
 
@@ -587,7 +610,7 @@ class LureBuster:
                 pwd_frame,
                 textvariable=self.pwd_var,
                 values=list(self.backend.config.password_complexities.keys()),
-                width=10
+                width=10,
         )
 
         pwd_combo.pack(side=tk.RIGHT)
@@ -612,19 +635,27 @@ class LureBuster:
         cc_types_frame.pack(fill=tk.X, pady=(0, 5))
 
         self.visa_var = tk.BooleanVar(value=True)
-        visa_check = ttk.Checkbutton(cc_types_frame, text="Visa", variable=self.visa_var)
+        visa_check = ttk.Checkbutton(
+                cc_types_frame, text="Visa", variable=self.visa_var
+        )
         visa_check.pack(side=tk.LEFT)
 
         self.mc_var = tk.BooleanVar(value=True)
-        mc_check = ttk.Checkbutton(cc_types_frame, text="MasterCard", variable=self.mc_var)
+        mc_check = ttk.Checkbutton(
+                cc_types_frame, text="MasterCard", variable=self.mc_var
+        )
         mc_check.pack(side=tk.LEFT)
 
         self.amex_var = tk.BooleanVar(value=True)
-        amex_check = ttk.Checkbutton(cc_types_frame, text="Amex", variable=self.amex_var)
+        amex_check = ttk.Checkbutton(
+                cc_types_frame, text="Amex", variable=self.amex_var
+        )
         amex_check.pack(side=tk.LEFT)
 
         self.discover_var = tk.BooleanVar(value=True)
-        discover_check = ttk.Checkbutton(cc_types_frame, text="Discover", variable=self.discover_var)
+        discover_check = ttk.Checkbutton(
+                cc_types_frame, text="Discover", variable=self.discover_var
+        )
         discover_check.pack(side=tk.LEFT)
 
     def add_template(self):
@@ -669,14 +700,16 @@ class LureBuster:
             edited_content = self.template_editor.get("1.0", tk.END).strip()
             template_data = json.loads(edited_content)
 
-            self.backend.save_template(self.backend.selected_template_name, template_data)
+            self.backend.save_template(
+                    self.backend.selected_template_name, template_data
+            )
             self.backend.save_templates()
             self.backend.load_templates_file()
             self.load_templates()
 
             self.template_label.config(
                     text=f"Template: {self.backend.selected_template_name}",
-                    foreground=self.fg_color
+                    foreground=self.fg_color,
             )
             messagebox.showinfo("Success", "Template saved successfully")
 
@@ -691,19 +724,19 @@ class LureBuster:
     def load_template_data(self):
         data = self.backend.selected_template.copy()
 
-        self.request_count.set(data['config']['request_count'])
-        self.thread_count.set(data['config']['thread_count'])
-        self.delay.set(data['config']['request_delay'])
+        self.request_count.set(data["config"]["request_count"])
+        self.thread_count.set(data["config"]["thread_count"])
+        self.delay.set(data["config"]["request_delay"])
 
-        self.target_url.set(data['request']['url'])
-        self.request_method.set(data['request']['method'])
+        self.target_url.set(data["request"]["url"])
+        self.request_method.set(data["request"]["method"])
 
-        self.current_region.set(data['config']['data_region'])
-        self.pwd_var.set(data['config']['password_complexity'])
+        self.current_region.set(data["config"]["data_region"])
+        self.pwd_var.set(data["config"]["password_complexity"])
 
         self.template_label.config(
                 text=f"Template: {self.backend.selected_template_name}",
-                foreground=self.fg_color
+                foreground=self.fg_color,
         )
 
     def on_template_select(self, event):
@@ -715,7 +748,9 @@ class LureBuster:
         selected_name = self.templates_listbox.get(selection[0])
         self.backend.load_template(selected_name)
         self.template_editor.delete(1.0, tk.END)
-        self.template_editor.insert(tk.INSERT, json.dumps(self.backend.selected_template, indent=4))
+        self.template_editor.insert(
+                tk.INSERT, json.dumps(self.backend.selected_template, indent=4)
+        )
         self.load_template_data()
 
     def save_settings(self):
@@ -724,7 +759,7 @@ class LureBuster:
         messagebox.showinfo("Settings Saved", "Your settings have been saved.")
 
     def start_attack(self, test: bool = False):
-        url = self.backend.selected_template.get('request', {}).get('url', '').strip()
+        url = self.backend.selected_template.get("request", {}).get("url", "").strip()
         if not url:
             messagebox.showerror("Error", "Please enter a target URL")
             return
@@ -741,11 +776,13 @@ class LureBuster:
             messagebox.showerror("Error", "Number of threads must be greater than 0")
             return
 
-        if not messagebox.askyesno("Confirm Attack",
-                                   f"Are you sure you want to send {self.request_count.get() if not test else 1} "
-                                   f"request(s) to {url}?\n\n"
-                                   "This tool should only be used for educational purposes and security testing "
-                                   "on systems you have permission to test."):
+        if not messagebox.askyesno(
+                "Confirm Attack",
+                f"Are you sure you want to send {self.request_count.get() if not test else 1} "
+                f"request(s) to {url}?\n\n"
+                "This tool should only be used for educational purposes and security testing "
+                "on systems you have permission to test.",
+        ):
             return
 
         if not self.backend.selected_template:
@@ -759,7 +796,9 @@ class LureBuster:
             self.stop_button.config(state=tk.NORMAL)
             self.progress_bar["maximum"] = self.request_count.get()
             self.progress_bar["value"] = 0
-            self.progress_label.config(text=f"0/{self.request_count.get()} requests completed")
+            self.progress_label.config(
+                    text=f"0/{self.request_count.get()} requests completed"
+            )
             self.status_label.config(text="Running attack...")
 
             self.log_text.config(state=tk.NORMAL)
@@ -767,7 +806,9 @@ class LureBuster:
             self.log_text.config(state=tk.DISABLED)
 
             self.log_message(f"Starting attack on {url}")
-            self.log_message(f"Sending {self.request_count.get()} requests using {self.thread_count.get()} threads")
+            self.log_message(
+                    f"Sending {self.request_count.get()} requests using {self.thread_count.get()} threads"
+            )
 
             self.timer_thread = threading.Thread(target=self.update_timer)
             self.timer_thread.daemon = True
@@ -777,16 +818,20 @@ class LureBuster:
             self.chart_thread.daemon = True
             self.chart_thread.start()
 
-        self.attack_thread = threading.Thread(target=self.backend.start_attack, args=(test,), kwargs={
-                "data": {
-                        "url"          : self.target_url.get(),
-                        "method"       : self.request_method.get(),
-                        "request_count": self.request_count.get(),
-                        "thread_count" : self.thread_count.get(),
-                        "request_delay": self.delay.get(),
-                        "data_region"  : self.current_region.get()
-                }
-        })
+        self.attack_thread = threading.Thread(
+                target=self.backend.start_attack,
+                args=(test,),
+                kwargs={
+                        "data": {
+                                "url"          : self.target_url.get(),
+                                "method"       : self.request_method.get(),
+                                "request_count": self.request_count.get(),
+                                "thread_count" : self.thread_count.get(),
+                                "request_delay": self.delay.get(),
+                                "data_region"  : self.current_region.get(),
+                        }
+                },
+        )
         self.attack_thread.daemon = True
         self.attack_thread.start()
 
@@ -815,9 +860,19 @@ class LureBuster:
 
     def _update_progress_ui(self):
         """Update UI elements with the latest stats from the backend"""
-        self.progress_bar["value"] = self.backend.stats["requests_sent"]
-        self.progress_label.config(text=f"{self.backend.stats['requests_sent']}/{self.request_count.get()} requests "
-                                        f"completed")
+        sent = self.backend.stats["requests_sent"]
+        total = self.backend.selected_template['config']['request_count'] * \
+                self.backend.selected_template['config']['thread_count']
+
+        update_value = 0
+        if total != 0:
+            update_value = sent / total
+
+        self.progress_bar["value"] = update_value
+        self.progress_label.config(
+                text=f"{self.backend.stats['requests_sent']}/{self.request_count.get()} requests "
+                     f"completed"
+        )
         self.sent_label.config(text=str(self.backend.stats["requests_sent"]))
         self.success_label.config(text=str(self.backend.stats["successful_requests"]))
         self.failed_label.config(text=str(self.backend.stats["failed_requests"]))
@@ -849,19 +904,24 @@ class LureBuster:
                 self.rate_plot.plot(times, rates, color=self.accent_color)
                 self.rate_plot.set_facecolor(self.bg_color)
                 self.rate_plot.tick_params(colors=self.fg_color)
-                self.rate_plot.set_xlabel('Time (s)', color=self.fg_color)
-                self.rate_plot.set_ylabel('Requests/sec', color=self.fg_color)
-                self.rate_plot.set_title('Request Rate', color=self.fg_color)
+                self.rate_plot.set_xlabel("Time (s)", color=self.fg_color)
+                self.rate_plot.set_ylabel("Requests/sec", color=self.fg_color)
+                self.rate_plot.set_title("Request Rate", color=self.fg_color)
                 self.rate_canvas.draw()
 
-            labels = ['Success', 'Failed']
-            sizes = [self.backend.stats["successful_requests"], self.backend.stats["failed_requests"]]
+            labels = ["Success", "Failed"]
+            sizes = [
+                    self.backend.stats["successful_requests"],
+                    self.backend.stats["failed_requests"],
+            ]
             colors = [self.success_color, self.warning_color]
 
             self.status_plot.clear()
             if sum(sizes) > 0:  # Avoid division by zero
-                self.status_plot.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%')
-                self.status_plot.set_title('Request Status', color=self.fg_color)
+                self.status_plot.pie(
+                        sizes, labels=labels, colors=colors, autopct="%1.1f%%"
+                )
+                self.status_plot.set_title("Request Status", color=self.fg_color)
                 self.status_canvas.draw()
 
             time.sleep(0.5)
@@ -874,27 +934,34 @@ class LureBuster:
         self.log_message("Attack completed")
 
         self.add_to_history()
-        messagebox.showinfo("Attack Summary",
-                            f"Attack completed\n\n"
-                            f"Target: {self.target_url.get()}\n"
-                            f"Requests sent: {self.backend.stats['requests_sent']}\n"
-                            f"Successful: {self.backend.stats['successful_requests']} ("
-                            f"{data.get('success_rate'):.1f}%)\n"
-                            f"Failed: {self.backend.stats['failed_requests']}\n"
-                            f"Duration: {data.get('time_str')}\n")
+
+        metrics = self.backend.get_metrics()
+        messagebox.showinfo(
+                "Attack Summary",
+                f"Attack completed\n\n"
+                f"Target: {self.target_url.get()}\n"
+                f"Requests sent: {metrics['sent_requests']}\n"
+                f"Successful: {metrics['successful_requests']} ({metrics['success_rate']})\n"
+                f"Failed: {metrics['failed_requests']}\n"
+                f"Duration: {metrics['elapsed_time']}\n",
+        )
 
     def add_to_history(self):
         if not self.backend.stats["start_time"] or not self.backend.stats["end_time"]:
             return
 
-        data = self.backend.add_to_history()
-        self.history_tree.insert("", 0, values=(
-                data.get('date_str'),
-                self.target_url.get(),
-                str(self.backend.stats["requests_sent"]),
-                f"{float(data.get('success_rate')):.1f}%",
-                data.get('time_str')
-        ))
+        data = self.backend.get_metrics()
+        self.history_tree.insert(
+                "",
+                0,
+                values=(
+                        data.get("date_str"),
+                        self.target_url.get(),
+                        str(data["sent_requests"]),
+                        data["success_rate"],
+                        data['elapsed_time'],
+                ),
+        )
 
     def log_message(self, message):
         timestamp = datetime.now().strftime("%H:%M:%S")

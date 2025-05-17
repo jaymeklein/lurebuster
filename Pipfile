@@ -11,3 +11,7 @@ faker = "*"
 
 [requires]
 python_version = "3.13"
+
+
+[scripts]
+main = "python3 main.py"

@@ -3,4 +3,5 @@
 Pipfile.lock
 templates.json
 lurebuster.log
-/*.swp
+*.swp
+*.pyc
