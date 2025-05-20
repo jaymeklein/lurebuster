@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 from datetime import datetime
+from time import perf_counter_ns
 from typing import Callable
 
 from requests import ReadTimeout, request
@@ -33,7 +34,7 @@ class Backend:
     register_log: Callable
     stop = False
 
-    request_threads: list[threading.Thread] = []
+    request_threads: dict = {}
 
     def __init__(self):
         self.config = Config()
@@ -62,10 +63,11 @@ class Backend:
             locale = self.config.locale_from_region(data["data_region"])
             self.set_provider_controller(locale)
 
-        self.request_threads = []
+        self.request_threads = {}
 
         if test:
             self.loop_requests(0, data, test)
+            self.stop = False
             return
 
         if not self.stats.get("start_time"):
@@ -76,20 +78,22 @@ class Backend:
             thread = threading.Thread(target=self.loop_requests, args=(i, data))
             thread.daemon = True
             thread.start()
-            self.request_threads.append(thread)
+            self.request_threads[i] = thread
 
-        for thread in self.request_threads:
+        for thread in self.request_threads.values():
             thread.join()
 
+        self.stop = False
         self.on_finish_run()
+        self.register_log("Attack stopped")
 
     def loop_requests(self, thread_id: int, data: dict, test: bool = False):
         url = data["url"]
         method = data["method"].lower()
         count = data.get("request_count", 1)
         delay = data.get("request_delay", 0)
-        original_headers = self.selected_template.get("headers", {})
-        original_payload = self.selected_template.get("form_fields", {})
+        original_headers = self.selected_template.get("headers")
+        original_payload = self.selected_template.get("form_fields")
 
         for _ in range(count):
             headers = self.replace_request_data_placeholders(original_headers.copy())
@@ -100,12 +104,13 @@ class Backend:
 
             current_time = time.time() - self.stats["start_time"]
             self.stats["request_times"].append(current_time)
-
+            start = time.perf_counter()
             sent, recv, code = self.send_request(method, url, headers, payload, thread_id)
-            self.register_log(f"THREAD[{thread_id}] STATUS_CODE[{code}] BYTES_SENT[{sent}] BYTES_RECEIVED[{recv}]")
+            elapsed = time.perf_counter() - start
+            self.stats['response_times'].append(elapsed)
+            self.register_log(f"thread:{thread_id} status:{code} sent:{sent} received:{recv} in {format(elapsed, '.3f')}ms")
 
-            if test or self.stop:
-                self.stop = False
+            if test or self.stop:  
                 return
 
             if len(self.stats["request_times"]) < 1:
@@ -128,7 +133,7 @@ class Backend:
         status_code = None
 
         try:
-            response = request(method, url, headers=headers, data=payload, timeout=10)
+            response = request(method, url, headers=headers, data=json.dumps(payload), timeout=10)
             bytes_sent, bytes_received = self.get_request_size(response)
             status_code = response.status_code
             if response.status_code in range(100, 200):
@@ -161,8 +166,14 @@ class Backend:
 
         return bytes_sent, bytes_received, status_code
 
-    def replace_request_data_placeholders(self, data: dict) -> dict:
+    def replace_request_data_placeholders(self, data: dict | str) -> dict | str:
         """Replaces placeholders in the request data with generated values."""
+        if not data:
+            return None
+
+        if isinstance(data, str):
+            return self.replace_request_data_placeholders(data)
+
         for key, value in data.items():
             if isinstance(value, str):
                 data[key] = self.provider_controller.replace_placeholders(
@@ -177,7 +188,7 @@ class Backend:
     def stop_threads(self):
         """Stops sending requests to the target URL."""
         self.stop = True
-        for thread in self.request_threads:
+        for thread in self.request_threads.values():
             if thread.is_alive():
                 thread.join(1.0)
 
@@ -267,6 +278,12 @@ class Backend:
 
     def load_defaults(self):
         self.stats = self.config.default_stats.copy()
+        
+        if self.templates:
+            self.selected_template_name = list(self.templates.keys())[0]
+            self.selected_template = self.templates[self.selected_template_name]
+            return
+        
         self.selected_template = self.config.default_template.copy()
         self.selected_template_name = self.selected_template["name"]
 

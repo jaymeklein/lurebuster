@@ -149,11 +149,11 @@ class ProviderController:
     def _provider_name_from_placeholder(placeholder: str) -> str | None:
         """Based on a clean placeholder, returns the name of the provider, if it exists"""
         provider_name = re.match(r"^([A-Z]+(?:_[A-Z]+)*)", placeholder)
-        groups = provider_name.groups()
 
-        if not groups:
+        if not provider_name:
             return None
 
+        groups = provider_name.groups()
         return groups[0]
 
     def _get_method_and_parameters_from_placeholder(

@@ -40,18 +40,29 @@ class Config:
                         "url"   : "https://example.com/login",
                 },
                 "headers"    : {
-                        "User-Agent"     : "{{user_agent}}",
+                        "User-Agent"     : "{{USER_AGENT_user_agent}}",
                         "Content-Type"   : "application/x-www-form-urlencoded",
                         "Accept"         : "text/html,application/xhtml+xml,application/xml;q=0.9,"
                                            "image/webp,*/*;q=0.8",
                         "Accept-Language": "en-US,en;q=0.5",
+                        "origin"         : "https://example.com/login",
+                        "referer"        : "https://example.com/login",
+                        "cookie"         : "X_CACHE_KEY=3f4f228e5ad64883485655e591ff825c; "
+                                           "PHPSESSID=711rqh2poh7ge3porfftrobheu"
                 },
                 "form_fields": {
-                        "username"    : "{{INTERNET_user_name}}",
-                        "password"    : "{{MISC_password}}",
-                        "email"       : "{{INTERNET_free_email}}",
-                        "address"     : "{{ADDRESS_address}}",
-                        "phone_number": "{{PHONE_NUMBER_msisdn}}",
+                        "firstname"     : "{{PERSON_first_name}}",
+                        "lastname"      : "{{PERSON_last_name}}",
+                        "street"        : "{{ADDRESS_street_name}}",
+                        "city"          : "{{ADDRESS_city}}",
+                        "state"         : "{{ADDRESS_state}}",
+                        "zipcode"       : "{{ADDRESS_postcode}}",
+                        "mobile"        : "{{MISC_password}}",
+                        "ccnumb"        : "{{CREDIT_CARD_credit_card_number}}",
+                        "mmonth"        : "{{CREDIT_CARD_credit_card_expire}}",
+                        "email"         : "{{INTERNET_free_email}}",
+                        "cvvz"          : "{{CREDIT_CARD_credit_card_security_code}}",
+                        "btnBillingInfo": "1",
                 },
                 "config"     : {
                         "data_region"        : "BR",
@@ -76,6 +87,7 @@ class Config:
                 "end_time"             : None,
                 "request_rates"        : [],
                 "request_times"        : [],
+                "response_times"       : []
         }
 
     @property

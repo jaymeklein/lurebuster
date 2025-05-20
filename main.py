@@ -2,6 +2,7 @@ import json
 import threading
 import time
 import tkinter as tk
+from statistics import mean
 from datetime import datetime
 from tkinter import messagebox, scrolledtext, simpledialog, ttk
 
@@ -21,8 +22,8 @@ class LureBuster:
         self.root = root
         self.root.title("LureBuster - Phishing Site Disruptor")
         self.root.geometry("1000x1400")
-        self.root.minsize(1500, 1000)
-        self.root.maxsize(1500, 1000)
+        self.root.minsize(1600, 1000)
+        self.root.maxsize(1600, 1000)
         self.set_theme()
         self.target_url = tk.StringVar()
         self.request_method = tk.StringVar()
@@ -36,6 +37,7 @@ class LureBuster:
         self.backend.register_stats_callback(self.update_progress)
         self.backend.register_finish_run_callback(self.finish_run)
         self.backend.register_activity_log_callback(self.log_message)
+        self.load_template_data()
 
     def set_theme(self):
         style = ttk.Style()
@@ -315,6 +317,28 @@ class LureBuster:
         )
         self.rate_label = ttk.Label(stats_inner_frame, text="0.0")
         self.rate_label.grid(row=4, column=1, sticky=tk.E, pady=2)
+        
+        ttk.Label(stats_inner_frame, text="\nResponse Times in ms:").grid(
+                row=5, column=0, sticky=tk.W, pady=2
+        )
+        
+        ttk.Label(stats_inner_frame, text="Mean Response Time").grid(
+                row=6, column=0, sticky=tk.W, pady=2
+        )
+        self.rps_label = ttk.Label(stats_inner_frame, text="0.0")
+        self.rps_label.grid(row=6, column=1, sticky=tk.E, pady=2)
+        
+        ttk.Label(stats_inner_frame, text="Highest Response Time").grid(
+                row=7, column=0, sticky=tk.W, pady=2
+        )
+        self.highest_response_time = ttk.Label(stats_inner_frame, text="0.0")
+        self.highest_response_time.grid(row=7, column=1, sticky=tk.E, pady=2)
+        
+        ttk.Label(stats_inner_frame, text="Lowest Response Time").grid(
+                row=8, column=0, sticky=tk.W, pady=2
+        )
+        self.lowest_response_time = ttk.Label(stats_inner_frame, text="0.0")
+        self.lowest_response_time.grid(row=8, column=1, sticky=tk.E, pady=2)
 
         right_frame = ttk.Frame(parent)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
@@ -722,6 +746,9 @@ class LureBuster:
         self.load_template_data()
 
     def load_template_data(self):
+        if not self.backend.selected_template:
+            return
+        
         data = self.backend.selected_template.copy()
 
         self.request_count.set(data["config"]["request_count"])
@@ -739,7 +766,7 @@ class LureBuster:
                 foreground=self.fg_color,
         )
 
-    def on_template_select(self, event):
+    def on_template_select(self, _):
         """Handle template selection from listbox"""
         selection = self.templates_listbox.curselection()
         if not selection:
@@ -753,10 +780,6 @@ class LureBuster:
         )
         self.load_template_data()
 
-    def save_settings(self):
-        # This does not work yet
-        self.log_message("Settings saved")
-        messagebox.showinfo("Settings Saved", "Your settings have been saved.")
 
     def start_attack(self, test: bool = False):
         url = self.backend.selected_template.get("request", {}).get("url", "").strip()
@@ -797,7 +820,7 @@ class LureBuster:
             self.progress_bar["maximum"] = self.request_count.get()
             self.progress_bar["value"] = 0
             self.progress_label.config(
-                    text=f"0/{self.request_count.get()} requests completed"
+                    text=f"0/{self.request_count.get() * self.thread_count.get()} requests completed"
             )
             self.status_label.config(text="Running attack...")
 
@@ -850,7 +873,6 @@ class LureBuster:
         self.start_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         self.status_label.config(text="Attack stopped")
-        self.log_message("Attack stopped")
 
         self.add_to_history()
 
@@ -870,7 +892,7 @@ class LureBuster:
 
         self.progress_bar["value"] = update_value
         self.progress_label.config(
-                text=f"{self.backend.stats['requests_sent']}/{self.request_count.get()} requests "
+                text=f"{self.backend.stats['requests_sent']}/{self.request_count.get() * self.thread_count.get()} requests "
                      f"completed"
         )
         self.sent_label.config(text=str(self.backend.stats["requests_sent"]))
@@ -882,6 +904,16 @@ class LureBuster:
             if elapsed > 0:
                 rate = self.backend.stats["requests_sent"] / elapsed
                 self.rate_label.config(text=f"{rate:.1f}")
+                
+        if self.backend.stats['response_times']:
+            mean_rts = mean(self.backend.stats['response_times'])
+            self.rps_label.config(text=f"{mean_rts:.3f}")
+            
+            highest_rt = max(self.backend.stats['response_times'])
+            self.highest_response_time.config(text=f"{highest_rt:.3f}")
+            
+            lowest_rt = min(self.backend.stats['response_times'])
+            self.lowest_response_time.config(text=f"{lowest_rt:.3f}")
 
     def update_timer(self):
         while self.running:
@@ -895,13 +927,17 @@ class LureBuster:
             self.time_label.config(text=time_str)
             time.sleep(1)
 
-    def update_charts(self):
+    def update_charts(self) :
         while self.running:
             if len(self.backend.stats["request_rates"]) > 1:
                 times, rates = zip(*self.backend.stats["request_rates"])
 
                 self.rate_plot.clear()
                 self.rate_plot.plot(times, rates, color=self.accent_color)
+                
+                if len(rates) > 1:
+                    self.rate_plot.set_ylim(0, max(rates[1:]) * 1.25)
+                
                 self.rate_plot.set_facecolor(self.bg_color)
                 self.rate_plot.tick_params(colors=self.fg_color)
                 self.rate_plot.set_xlabel("Time (s)", color=self.fg_color)
@@ -909,18 +945,40 @@ class LureBuster:
                 self.rate_plot.set_title("Request Rate", color=self.fg_color)
                 self.rate_canvas.draw()
 
-            labels = ["Success", "Failed"]
+            labels = ["Info (100-199)",
+                      "Success (200-299)",
+                      "Redirect (300-399)",
+                      "Failed (400-499)",
+                      "Error (500-599)",
+                      "Timeout"]
             sizes = [
+                    self.backend.stats['info_requests'],
                     self.backend.stats["successful_requests"],
+                    self.backend.stats["redirected_requests"],
                     self.backend.stats["failed_requests"],
+                    self.backend.stats["server_error_requests"],
+                    self.backend.stats["timed_out_requests"]
             ]
-            colors = [self.success_color, self.warning_color]
+            colors = ["#3498DB", "#2ECC71", "#F39C12", "#E74C3C", "#9B59B6", "#7F8C8D"]
 
             self.status_plot.clear()
-            if sum(sizes) > 0:  # Avoid division by zero
-                self.status_plot.pie(
-                        sizes, labels=labels, colors=colors, autopct="%1.1f%%"
+            if sum(sizes) > 0:
+                patches, _, _ = self.status_plot.pie(
+                        sizes, colors=colors, autopct="%1.1f%%"
                 )
+                
+                self.status_plot.legend(
+                    patches,
+                    labels,
+                    title="Status Types",
+                    loc="best",
+                    bbox_to_anchor=(1, 0.5)
+                )
+                
+                legend = self.status_plot.legend_
+                for index, text in enumerate(legend.get_texts()):
+                    text.set_color(colors[index])
+                
                 self.status_plot.set_title("Request Status", color=self.fg_color)
                 self.status_canvas.draw()
 
