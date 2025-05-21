@@ -37,7 +37,7 @@ class Config:
                 "name"       : "Example Template",
                 "request"    : {
                         "method": "POST",
-                        "url"   : "https://example.com/login",
+                        "url"   : "http://localhost:8000/example-endpoint",
                 },
                 "headers"    : {
                         "User-Agent"     : "{{USER_AGENT_user_agent}}",
@@ -45,8 +45,8 @@ class Config:
                         "Accept"         : "text/html,application/xhtml+xml,application/xml;q=0.9,"
                                            "image/webp,*/*;q=0.8",
                         "Accept-Language": "en-US,en;q=0.5",
-                        "origin"         : "https://example.com/login",
-                        "referer"        : "https://example.com/login",
+                        "origin"         : "http://localhost:8000/example-endpoint",
+                        "referer"        : "http://localhost:8000/example-endpoint",
                         "cookie"         : "X_CACHE_KEY=3f4f228e5ad64883485655e591ff825c; "
                                            "PHPSESSID=711rqh2poh7ge3porfftrobheu"
                 },
