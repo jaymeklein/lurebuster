@@ -47,6 +47,27 @@ Text placeholders follow [Providers](https://faker.readthedocs.io/en/stable/prov
   - Method with keyword parameters: `{{USER_AGENT_chrome(version_from=13,version_to=63,build_from=800,build_to=899)}}`
   - Method with default parameters: `{{USER_AGENT_chrome}}`
 
+## 🐳 Example Endpoint with Docker
+#### Creating the Image
+```bash
+sudo docker build -t example-api-image example-api/.
+```
+
+#### Running the Container
+```bash
+sudo docker run -p 8000:8000 -d --name "lurebuster-example-api" "example-api-image"
+```
+
+#### Testing the Endpoints
+If everything ran properly, you should see **`Hello, LureBuster!`** at http://localhost:8000, and since I chose [FastAPI](https://fastapi.tiangolo.com/) to host this test endpoint, you can also access swagger [docs](http://localhost:8000/docs) 
+
+#### Checking Endpoint logs
+```bash
+sudo docker logs -f "lurebuster-example-api"
+```
+This will open a terminal with all the traffic in the 2 example endpoints.
+
+
 ## 🐱 Code Reviews by Haxi  
 Our Chief Meowker Officer ensures:  
 - Readable, maintainable code  
